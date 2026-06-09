@@ -1,16 +1,18 @@
 // ══════════════════════════════════════════════════════════════
-// Farol Operacional — Frontend Logic v2
+// Farol Operacional — Frontend Logic v3
 // ══════════════════════════════════════════════════════════════
 
 const CHATWOOT_BASE = 'https://chatclinics.5ef4kt.easypanel.host';
 
 let currentData = null;
 let currentDetailData = null;
-let currentModalType = null; // 'unit' or 'operator'
+let currentModalType = null;
 let autoRefreshTimer = null;
 
 // ── Init ────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  initBanner();
   loadUserInfo();
   loadDashboard();
 
@@ -34,7 +36,42 @@ document.addEventListener('DOMContentLoaded', () => {
   startAutoRefresh();
 });
 
-// ── Auth helpers ────────────────────────────────────────────
+// ── Context banner ──────────────────────────────────────────
+function initBanner() {
+  if (!localStorage.getItem('farol_banner_dismissed')) {
+    const el = document.getElementById('contextBanner');
+    if (el) el.classList.remove('hidden');
+  }
+}
+
+function dismissBanner() {
+  localStorage.setItem('farol_banner_dismissed', '1');
+  const el = document.getElementById('contextBanner');
+  if (el) el.remove();
+}
+
+// ── Theme ───────────────────────────────────────────────────
+function initTheme() {
+  updateThemeIcons();
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('farol_theme', isDark ? 'dark' : 'light');
+  updateThemeIcons();
+}
+
+function updateThemeIcons() {
+  const isDark = document.documentElement.classList.contains('dark');
+  const moon = document.getElementById('themeIconMoon');
+  const sun = document.getElementById('themeIconSun');
+  if (moon && sun) {
+    moon.classList.toggle('hidden', isDark);
+    sun.classList.toggle('hidden', !isDark);
+  }
+}
+
+// ── Auth ────────────────────────────────────────────────────
 async function loadUserInfo() {
   try {
     const res = await fetch('/api/auth/me');
@@ -117,7 +154,6 @@ function updateTimestamp(ts) {
 function renderDashboard(data) {
   const { units, totals, operators } = data;
 
-  // Summary cards
   document.getElementById('totalQueue').textContent = formatNumber(totals.totalQueue);
   document.getElementById('totalStalled').textContent = formatNumber(totals.totalStalled);
   document.getElementById('criticalUnits').textContent = totals.criticalUnits;
@@ -134,11 +170,19 @@ function renderUnitsTable(units) {
   tbody.innerHTML = units.map(u => {
     const statusDot = getStatusDot(u.status);
     const statusBadge = getStatusBadge(u.status);
-    const queueClass = u.queue_count > 50 ? 'text-red-600 font-bold' : u.queue_count > 15 ? 'text-amber-600 font-semibold' : 'text-gray-600';
-    const stalledClass = u.stalled_count > 100 ? 'text-red-600 font-bold' : u.stalled_count > 20 ? 'text-amber-600 font-semibold' : 'text-gray-600';
+    const queueClass = u.queue_count > 50
+      ? 'text-red-600 dark:text-red-400 font-bold'
+      : u.queue_count > 15
+        ? 'text-amber-600 dark:text-amber-400 font-semibold'
+        : 'text-neutral-600 dark:text-neutral-300';
+    const stalledClass = u.stalled_count > 100
+      ? 'text-red-600 dark:text-red-400 font-bold'
+      : u.stalled_count > 20
+        ? 'text-amber-600 dark:text-amber-400 font-semibold'
+        : 'text-neutral-600 dark:text-neutral-300';
 
     return `
-      <tr class="hover:bg-blue-50/40 transition-colors cursor-pointer group" data-unit-name="${u.account_name}" onclick="openDrilldown(${u.account_id})">
+      <tr class="hover:bg-blue-50/50 dark:hover:bg-neutral-800 transition-colors cursor-pointer group" data-unit-name="${u.account_name}" onclick="openDrilldown(${u.account_id})">
         <td class="px-4 py-2.5">
           <div class="flex items-center gap-1.5">
             ${statusDot}
@@ -146,7 +190,7 @@ function renderUnitsTable(units) {
           </div>
         </td>
         <td class="px-4 py-2.5">
-          <span class="font-medium text-gray-900 text-xs">${escHtml(u.account_name)}</span>
+          <span class="font-medium text-neutral-900 dark:text-white text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${escHtml(u.account_name)}</span>
         </td>
         <td class="px-4 py-2.5 text-right">
           <span class="${queueClass} text-xs">${formatNumber(u.queue_count)}</span>
@@ -155,7 +199,12 @@ function renderUnitsTable(units) {
           <span class="${stalledClass} text-xs">${formatNumber(u.stalled_count)}</span>
         </td>
         <td class="px-4 py-2.5 text-right">
-          <span class="text-gray-500 text-xs">${u.stalled_operators}</span>
+          <span class="text-neutral-500 dark:text-neutral-400 text-xs">${u.stalled_operators}</span>
+        </td>
+        <td class="pr-3 py-2.5">
+          <svg class="w-3.5 h-3.5 text-neutral-300 dark:text-neutral-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+          </svg>
         </td>
       </tr>
     `;
@@ -165,7 +214,7 @@ function renderUnitsTable(units) {
 function renderOperatorsTable(operators) {
   const tbody = document.getElementById('operatorsTableBody');
   if (!operators || operators.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-400 text-xs">Nenhum operador com conversas paradas</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-center text-neutral-400 dark:text-neutral-500 text-xs">Nenhum operador com conversas paradas neste período</td></tr>';
     return;
   }
   tbody.innerHTML = operators.map((op, i) => {
@@ -174,30 +223,35 @@ function renderOperatorsTable(operators) {
     const barWidth = Math.min(100, (op.stalled_count / operators[0].stalled_count) * 100);
     const barColor = severity === 'critical' ? 'bg-red-500' : severity === 'warning' ? 'bg-amber-400' : 'bg-emerald-500';
     return `
-      <tr class="hover:bg-blue-50/40 transition-colors cursor-pointer" onclick="openOperatorDrilldown(${op.assignee_id}, ${op.account_id}, '${escAttr(op.assignee_name)}')">
-        <td class="px-4 py-2.5 text-xs text-gray-400 font-medium">${i + 1}</td>
+      <tr class="hover:bg-blue-50/50 dark:hover:bg-neutral-800 transition-colors cursor-pointer group" onclick="openOperatorDrilldown(${op.assignee_id}, ${op.account_id}, '${escAttr(op.assignee_name)}')">
+        <td class="px-4 py-2.5 text-xs text-neutral-400 dark:text-neutral-500 font-medium">${i + 1}</td>
         <td class="px-4 py-2.5">
           <div class="flex items-center gap-2">
-            <div class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500">
+            <div class="w-6 h-6 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px] font-semibold text-neutral-500 dark:text-neutral-400">
               ${getInitials(op.assignee_name)}
             </div>
-            <span class="font-medium text-gray-900 text-xs">${escHtml(op.assignee_name || 'Sem nome')}</span>
+            <span class="font-medium text-neutral-900 dark:text-white text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${escHtml(op.assignee_name || 'Sem nome')}</span>
           </div>
         </td>
         <td class="px-4 py-2.5">
-          <span class="text-xs text-gray-600">${escHtml(op.account_name)}</span>
+          <span class="text-xs text-neutral-600 dark:text-neutral-400">${escHtml(op.account_name)}</span>
         </td>
         <td class="px-4 py-2.5 text-right">
           <div class="flex items-center justify-end gap-1.5">
             ${badge}
-            <span class="font-bold text-xs text-gray-900">${formatNumber(op.stalled_count)}</span>
+            <span class="font-bold text-xs text-neutral-900 dark:text-white">${formatNumber(op.stalled_count)}</span>
           </div>
-          <div class="mt-1 w-full bg-gray-100 rounded-full h-1 max-w-[100px] ml-auto">
+          <div class="mt-1 w-full bg-neutral-100 dark:bg-neutral-800 rounded-full h-1 max-w-[100px] ml-auto">
             <div class="h-1 rounded-full ${barColor}" style="width: ${barWidth}%"></div>
           </div>
         </td>
         <td class="px-4 py-2.5 text-right">
-          <span class="text-xs ${op.max_days_inactive > 30 ? 'text-red-600 font-semibold' : op.max_days_inactive > 7 ? 'text-amber-600' : 'text-gray-500'}">${op.max_days_inactive}d</span>
+          <span class="text-xs ${op.max_days_inactive > 30 ? 'text-red-600 dark:text-red-400 font-semibold' : op.max_days_inactive > 7 ? 'text-amber-600 dark:text-amber-400' : 'text-neutral-500 dark:text-neutral-400'}">${op.max_days_inactive}d</span>
+        </td>
+        <td class="pr-3 py-2.5">
+          <svg class="w-3.5 h-3.5 text-neutral-300 dark:text-neutral-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+          </svg>
         </td>
       </tr>
     `;
@@ -225,15 +279,15 @@ function switchTab(tab) {
   document.getElementById('tabOperators').className = `px-3 py-2 text-xs transition-all ${tab === 'operators' ? 'tab-active' : 'tab-inactive'}`;
 }
 
-// ── Unit Drill-down Modal ──────────────────────────────────
+// ── Unit Drill-down ─────────────────────────────────────────
 async function openDrilldown(accountId) {
   currentModalType = 'unit';
   const modal = document.getElementById('drilldownModal');
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 
-  // Show loading, show summary/tabs bar
   document.getElementById('modalLoading').classList.remove('hidden');
+  document.getElementById('modalClickHint').classList.add('hidden');
   document.getElementById('modalStalled').classList.add('hidden');
   document.getElementById('modalQueue').classList.add('hidden');
   document.getElementById('modalOps').classList.add('hidden');
@@ -249,23 +303,20 @@ async function openDrilldown(accountId) {
 
     const d = currentDetailData;
 
-    // Header — sem IDs
     document.getElementById('modalTitle').textContent = d.accountName;
-    document.getElementById('modalSubtitle').textContent = `${formatNumber(d.stalledTotal)} paradas, ${formatNumber(d.queueTotal)} na fila`;
+    document.getElementById('modalSubtitle').textContent = `${formatNumber(d.stalledTotal)} paradas · ${formatNumber(d.queueTotal)} na fila`;
     document.getElementById('modalChatwootLink').href = `${CHATWOOT_BASE}/app/accounts/${d.accountId}/dashboard`;
 
-    // Summary
     document.getElementById('modalQueueCount').textContent = formatNumber(d.queueTotal);
     document.getElementById('modalStalledCount').textContent = formatNumber(d.stalledTotal);
     document.getElementById('modalOperatorCount').textContent = d.operators.length;
 
-    // Render content
     renderModalStalled(d.stalled);
     renderModalQueue(d.queue);
     renderModalOps(d.operators, d.accountId);
 
-    // Hide loading, show default tab
     document.getElementById('modalLoading').classList.add('hidden');
+    document.getElementById('modalClickHint').classList.remove('hidden');
     switchModalTab('stalled');
   } catch (err) {
     console.error('Drilldown error:', err);
@@ -278,17 +329,17 @@ async function openDrilldown(accountId) {
   }
 }
 
-// ── Operator Drill-down ────────────────────────────────────
+// ── Operator Drill-down ─────────────────────────────────────
 async function openOperatorDrilldown(userId, accountId, operatorName) {
   currentModalType = 'operator';
   const modal = document.getElementById('drilldownModal');
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 
-  // Hide summary/tabs bar for operator view, show loading
   document.getElementById('modalSummaryBar').classList.add('hidden');
   document.getElementById('modalTabsBar').classList.add('hidden');
   document.getElementById('modalLoading').classList.remove('hidden');
+  document.getElementById('modalClickHint').classList.add('hidden');
   document.getElementById('modalStalled').classList.add('hidden');
   document.getElementById('modalQueue').classList.add('hidden');
   document.getElementById('modalOps').classList.add('hidden');
@@ -300,21 +351,20 @@ async function openOperatorDrilldown(userId, accountId, operatorName) {
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const data = await res.json();
 
-    // Header
     document.getElementById('modalTitle').textContent = data.operatorName;
     document.getElementById('modalSubtitle').textContent = `${data.accountName} — ${formatNumber(data.total)} conversas paradas`;
     document.getElementById('modalChatwootLink').href = `${CHATWOOT_BASE}/app/accounts/${accountId}/dashboard`;
 
-    // Render conversations directly (no tabs for operator view)
     const container = document.getElementById('modalStalled');
     if (data.conversations.length === 0) {
       container.innerHTML = emptyState('Nenhuma conversa parada');
     } else {
       container.innerHTML = data.conversations.map(c => conversationCard(c, false)).join('')
-        + (data.showing < data.total ? `<div class="text-center py-2 text-[11px] text-gray-400">Mostrando ${data.showing} de ${formatNumber(data.total)} conversas</div>` : '');
+        + (data.showing < data.total ? `<div class="text-center py-2 text-[11px] text-neutral-400 dark:text-neutral-500">Mostrando ${data.showing} de ${formatNumber(data.total)}</div>` : '');
     }
 
     document.getElementById('modalLoading').classList.add('hidden');
+    document.getElementById('modalClickHint').classList.remove('hidden');
     container.classList.remove('hidden');
   } catch (err) {
     console.error('Operator drilldown error:', err);
@@ -353,7 +403,7 @@ function renderModalStalled(conversations) {
   const d = currentDetailData;
   const truncated = d && d.stalledShowing < d.stalledTotal;
   container.innerHTML = conversations.map(c => conversationCard(c, true)).join('')
-    + (truncated ? `<div class="text-center py-2 text-[11px] text-gray-400">Mostrando ${d.stalledShowing} de ${formatNumber(d.stalledTotal)} conversas</div>` : '');
+    + (truncated ? `<div class="text-center py-2 text-[11px] text-neutral-400 dark:text-neutral-500">Mostrando ${d.stalledShowing} de ${formatNumber(d.stalledTotal)}</div>` : '');
 }
 
 function renderModalQueue(conversations) {
@@ -365,7 +415,7 @@ function renderModalQueue(conversations) {
   const d = currentDetailData;
   const truncated = d && d.queueShowing < d.queueTotal;
   container.innerHTML = conversations.map(c => conversationCard(c, false)).join('')
-    + (truncated ? `<div class="text-center py-2 text-[11px] text-gray-400">Mostrando ${d.queueShowing} de ${formatNumber(d.queueTotal)} conversas</div>` : '');
+    + (truncated ? `<div class="text-center py-2 text-[11px] text-neutral-400 dark:text-neutral-500">Mostrando ${d.queueShowing} de ${formatNumber(d.queueTotal)}</div>` : '');
 }
 
 function renderModalOps(operators, accountId) {
@@ -380,20 +430,22 @@ function renderModalOps(operators, accountId) {
         const barWidth = Math.min(100, (op.stalled_count / operators[0].stalled_count) * 100);
         const severity = op.stalled_count > 100 ? 'bg-red-500' : op.stalled_count > 30 ? 'bg-amber-400' : 'bg-emerald-500';
         return `
-          <div class="bg-gray-50 rounded-md p-3 border border-gray-100 cursor-pointer hover:border-blue-200 hover:bg-blue-50/30 transition-all" onclick="openOperatorDrilldown(${op.assignee_id}, ${accountId}, '${escAttr(op.assignee_name)}')">
+          <div class="bg-neutral-50 dark:bg-neutral-800 rounded-md p-3 border border-neutral-100 dark:border-neutral-700 cursor-pointer hover:border-blue-300 dark:hover:border-neutral-600 hover:bg-blue-50/30 dark:hover:bg-neutral-750 transition-all group" onclick="openOperatorDrilldown(${op.assignee_id}, ${accountId}, '${escAttr(op.assignee_name)}')">
             <div class="flex items-center justify-between mb-1.5">
               <div class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-500">
+                <div class="w-6 h-6 rounded-full bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 flex items-center justify-center text-[10px] font-semibold text-neutral-500 dark:text-neutral-400">
                   ${getInitials(op.assignee_name)}
                 </div>
-                <span class="font-medium text-xs text-gray-900">${escHtml(op.assignee_name || 'Sem nome')}</span>
+                <span class="font-medium text-xs text-neutral-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${escHtml(op.assignee_name || 'Sem nome')}</span>
               </div>
-              <div class="text-right">
-                <span class="text-sm font-bold text-gray-900">${op.stalled_count}</span>
-                <span class="text-[10px] text-gray-400 ml-0.5">conversas</span>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-neutral-900 dark:text-white">${op.stalled_count}</span>
+                <svg class="w-3.5 h-3.5 text-neutral-300 dark:text-neutral-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+                </svg>
               </div>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-1.5">
+            <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5">
               <div class="h-1.5 rounded-full ${severity} transition-all" style="width: ${barWidth}%"></div>
             </div>
           </div>
@@ -406,24 +458,24 @@ function renderModalOps(operators, accountId) {
 function conversationCard(c, showAssignee) {
   const timeBadge = getTimeBadge(c.hours_inactive);
   const assigneeHtml = showAssignee && c.assignee_name
-    ? `<span class="text-[11px] text-gray-400">• ${escHtml(c.assignee_name)}</span>`
+    ? `<span class="text-[11px] text-neutral-400 dark:text-neutral-500">· ${escHtml(c.assignee_name)}</span>`
     : '';
 
   return `
-    <a href="${c.chatwootUrl}" target="_blank" class="block bg-white border border-gray-100 rounded-md px-3 py-2.5 hover:border-blue-200 hover:shadow-sm transition-all group">
+    <a href="${c.chatwootUrl}" target="_blank" class="block bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-md px-3 py-2.5 hover:border-blue-300 dark:hover:border-neutral-600 hover:shadow-sm transition-all group">
       <div class="flex items-center justify-between">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-1.5 mb-0.5">
-            <span class="text-[10px] font-mono text-gray-400">#${c.display_id}</span>
+            <span class="text-[10px] font-mono text-neutral-400 dark:text-neutral-500">#${c.display_id}</span>
             ${timeBadge}
           </div>
-          <div class="font-medium text-xs text-gray-900 truncate">${escHtml(c.contact_name || 'Contato sem nome')}</div>
+          <div class="font-medium text-xs text-neutral-900 dark:text-white truncate">${escHtml(c.contact_name || 'Contato sem nome')}</div>
           <div class="flex items-center gap-1.5 mt-0.5">
-            ${c.contact_phone ? `<span class="text-[11px] text-gray-400">${escHtml(c.contact_phone)}</span>` : ''}
+            ${c.contact_phone ? `<span class="text-[11px] text-neutral-400 dark:text-neutral-500">${escHtml(c.contact_phone)}</span>` : ''}
             ${assigneeHtml}
           </div>
         </div>
-        <svg class="w-3.5 h-3.5 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <svg class="w-3.5 h-3.5 text-neutral-300 dark:text-neutral-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors flex-shrink-0 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
         </svg>
       </div>
@@ -439,33 +491,33 @@ function getStatusDot(status) {
 }
 
 function getStatusBadge(status) {
-  if (status === 'critical') return '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded-full leading-none">Crítico</span>';
-  if (status === 'warning') return '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-700 rounded-full leading-none">Atenção</span>';
-  return '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded-full leading-none">OK</span>';
+  if (status === 'critical') return '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 rounded-full leading-none">Crítico</span>';
+  if (status === 'warning') return '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-100 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400 rounded-full leading-none">Atenção</span>';
+  return '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-full leading-none">OK</span>';
 }
 
 function getTimeBadge(hours) {
   if (hours >= 168) {
     const days = Math.round(hours / 24);
-    return `<span class="px-1 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded leading-none">${days}d</span>`;
+    return `<span class="px-1 py-0.5 text-[10px] font-medium bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 rounded leading-none">${days}d</span>`;
   }
   if (hours >= 72) {
     const days = Math.round(hours / 24);
-    return `<span class="px-1 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 rounded leading-none">${days}d</span>`;
+    return `<span class="px-1 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 rounded leading-none">${days}d</span>`;
   }
   if (hours >= 48) {
-    return `<span class="px-1 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-700 rounded leading-none">${hours}h</span>`;
+    return `<span class="px-1 py-0.5 text-[10px] font-medium bg-yellow-100 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400 rounded leading-none">${hours}h</span>`;
   }
-  return `<span class="px-1 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500 rounded leading-none">${hours}h</span>`;
+  return `<span class="px-1 py-0.5 text-[10px] font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 rounded leading-none">${hours}h</span>`;
 }
 
 function emptyState(message) {
   return `
     <div class="flex flex-col items-center justify-center py-10 text-center">
-      <svg class="w-10 h-10 text-gray-200 mb-2" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+      <svg class="w-10 h-10 text-neutral-200 dark:text-neutral-700 mb-2" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
-      <p class="text-xs text-gray-400">${message}</p>
+      <p class="text-xs text-neutral-400 dark:text-neutral-500">${message}</p>
     </div>
   `;
 }

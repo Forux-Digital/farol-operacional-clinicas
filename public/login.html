@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
@@ -19,11 +20,19 @@
   </script>
   <style>
     body { background: #f8fafc; }
+    html.dark body { background: #0a0a0a; }
     .fade-in { animation: fadeIn .4s ease-out; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
   </style>
+  <script>
+    (function() {
+      if (localStorage.getItem('farol_theme') === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
 </head>
-<body class="font-sans text-gray-800 antialiased min-h-screen flex items-center justify-center">
+<body class="font-sans text-neutral-800 dark:text-neutral-200 antialiased min-h-screen flex items-center justify-center dark:bg-neutral-950 transition-colors">
 
   <div class="w-full max-w-sm mx-auto px-4 fade-in">
     <!-- Logo -->
@@ -33,27 +42,27 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
         </svg>
       </div>
-      <h1 class="text-lg font-bold text-gray-900">Farol Operacional</h1>
-      <p class="text-xs text-gray-400 mt-1">Use suas credenciais do Chatwoot para acessar</p>
+      <h1 class="text-lg font-bold text-gray-900 dark:text-white">Farol Operacional</h1>
+      <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Use suas credenciais do Chatwoot ou as credenciais fornecidas pela gestao</p>
     </div>
 
     <!-- Login Form -->
-    <form id="loginForm" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4" onsubmit="handleLogin(event)">
+    <form id="loginForm" class="bg-white dark:bg-neutral-900 rounded-xl border border-gray-200 dark:border-neutral-800 shadow-sm p-6 space-y-4 transition-colors" onsubmit="handleLogin(event)">
       <div>
-        <label for="email" class="block text-xs font-medium text-gray-600 mb-1.5">E-mail</label>
+        <label for="email" class="block text-xs font-medium text-gray-600 dark:text-neutral-400 mb-1.5">E-mail</label>
         <input id="email" type="email" required autocomplete="email" autofocus
-          class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+          class="w-full px-3 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm text-gray-900 dark:text-neutral-100 placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
           placeholder="seu@email.com">
       </div>
       <div>
-        <label for="password" class="block text-xs font-medium text-gray-600 mb-1.5">Senha</label>
+        <label for="password" class="block text-xs font-medium text-gray-600 dark:text-neutral-400 mb-1.5">Senha</label>
         <input id="password" type="password" required autocomplete="current-password"
-          class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
-          placeholder="Sua senha do Chatwoot">
+          class="w-full px-3 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm text-gray-900 dark:text-neutral-100 placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+          placeholder="Sua senha">
       </div>
 
       <!-- Error Message -->
-      <div id="errorMsg" class="hidden text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></div>
+      <div id="errorMsg" class="hidden text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2"></div>
 
       <button type="submit" id="submitBtn"
         class="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
@@ -64,7 +73,7 @@
       </button>
     </form>
 
-    <p class="text-center text-[11px] text-gray-300 mt-6">Governan&ccedil;a Operacional &mdash; Regional S&atilde;o Paulo</p>
+    <p class="text-center text-[11px] text-gray-300 dark:text-neutral-600 mt-6">Governan&ccedil;a Operacional &mdash; Regional S&atilde;o Paulo</p>
   </div>
 
   <script>
