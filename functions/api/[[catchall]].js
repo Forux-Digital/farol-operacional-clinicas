@@ -34,7 +34,7 @@ async function getDb(env) {
     database: env.DB_NAME,
     user: env.DB_USER,
     password: env.DB_PASSWORD,
-    ssl: false,
+    ssl: { rejectUnauthorized: false },
   });
   await client.connect();
   return client;
