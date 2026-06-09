@@ -1,0 +1,22 @@
+{
+  "name": "farol-operacional",
+  "version": "1.0.0",
+  "description": "Sistema de Governanca Operacional - Monitoramento Chatwoot",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "dev:cf": "npx wrangler pages dev public",
+    "deploy": "npx wrangler pages deploy public --project-name farol-operacional"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.0",
+    "hono": "^4.12.25",
+    "jose": "^6.2.3",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.13.0"
+  }
+}

@@ -1,0 +1,14 @@
+name = "farol-operacional"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CHATWOOT_BASE_URL = "https://chatclinics.5ef4kt.easypanel.host"
+
+# Secrets are set via CLI (never in code):
+# npx wrangler pages secret put DB_HOST
+# npx wrangler pages secret put DB_PORT
+# npx wrangler pages secret put DB_NAME
+# npx wrangler pages secret put DB_USER
+# npx wrangler pages secret put DB_PASSWORD
+# npx wrangler pages secret put JWT_SECRET

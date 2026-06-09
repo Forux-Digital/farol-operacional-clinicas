@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farol Operacional — Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #f8fafc; }
+    .fade-in { animation: fadeIn .4s ease-out; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  </style>
+</head>
+<body class="font-sans text-gray-800 antialiased min-h-screen flex items-center justify-center">
+
+  <div class="w-full max-w-sm mx-auto px-4 fade-in">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <h1 class="text-lg font-bold text-gray-900">Farol Operacional</h1>
+      <p class="text-xs text-gray-400 mt-1">Use suas credenciais do Chatwoot para acessar</p>
+    </div>
+
+    <!-- Login Form -->
+    <form id="loginForm" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4" onsubmit="handleLogin(event)">
+      <div>
+        <label for="email" class="block text-xs font-medium text-gray-600 mb-1.5">E-mail</label>
+        <input id="email" type="email" required autocomplete="email" autofocus
+          class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+          placeholder="seu@email.com">
+      </div>
+      <div>
+        <label for="password" class="block text-xs font-medium text-gray-600 mb-1.5">Senha</label>
+        <input id="password" type="password" required autocomplete="current-password"
+          class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+          placeholder="Sua senha do Chatwoot">
+      </div>
+
+      <!-- Error Message -->
+      <div id="errorMsg" class="hidden text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></div>
+
+      <button type="submit" id="submitBtn"
+        class="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+        <span id="btnText">Entrar</span>
+        <svg id="btnSpinner" class="hidden w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="31.4" stroke-dashoffset="10"/>
+        </svg>
+      </button>
+    </form>
+
+    <p class="text-center text-[11px] text-gray-300 mt-6">Governan&ccedil;a Operacional &mdash; Regional S&atilde;o Paulo</p>
+  </div>
+
+  <script>
+    // If already authenticated, redirect to dashboard
+    fetch('/api/auth/me').then(r => {
+      if (r.ok) window.location.href = '/';
+    });
+
+    async function handleLogin(e) {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('errorMsg');
+      const submitBtn = document.getElementById('submitBtn');
+      const btnText = document.getElementById('btnText');
+      const btnSpinner = document.getElementById('btnSpinner');
+
+      // UI loading state
+      errorMsg.classList.add('hidden');
+      submitBtn.disabled = true;
+      btnText.textContent = 'Autenticando...';
+      btnSpinner.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          window.location.href = '/';
+        } else {
+          errorMsg.textContent = data.error || 'Credenciais inválidas';
+          errorMsg.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Erro de conexão. Tente novamente.';
+        errorMsg.classList.remove('hidden');
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = 'Entrar';
+        btnSpinner.classList.add('hidden');
+      }
+    }
+  </script>
+</body>
+</html>
