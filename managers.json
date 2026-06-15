@@ -1,66 +1,26 @@
 {
-  "_comment": "Gestores que nao tem conta Chatwoot. Senha sera hash bcrypt. accounts=[] significa acesso global.",
+  "_comment": "Gestores e líderes. accounts=[] = acesso global. mustChangePassword=true exige troca no 1º login.",
   "managers": [
+    {
+      "email": "paulo.godoy@gci.com.br",
+      "name": "Paulo Godoy",
+      "passwordHash": "$2b$10$eIVP6sY1nE8wzZWETkmVv.W0756Gzt8WP6c2uBBmKcFqNtm8W2nWG",
+      "accounts": [],
+      "role": "gerente",
+      "mustChangePassword": true
+    },
+    {
+      "email": "thauany.santos@gci.com.br",
+      "name": "Thauany Santos",
+      "passwordHash": "$2b$10$KhXmswkWc.lq70beyeh84Oc3TuH84V7xeTbiCtD5by8XzVPQIkJve",
+      "accounts": [],
+      "role": "gerente",
+      "mustChangePassword": true
+    },
     {
       "email": "gustavo.passos@gci.com.br",
       "name": "Gustavo Passos",
-      "passwordHash": "$2b$10$UxfMvhQdf5Mj0secP0udCOmplIkOSg/TlmMlhw7MUg.l/WB/adbrW",
-      "accounts": [],
-      "role": "gerente"
-    },
-    {
-      "email": "ricardo.p@gci.com.br",
-      "name": "Ricardo P.",
-      "passwordHash": "$2b$10$ULFSw9jFrbE0hX0k9d6mA.3axmsEksQKagcRmx2OcgQ27YVnsAWSm",
-      "accounts": [],
-      "role": "gerente"
-    },
-    {
-      "email": "eduardo.campos@gci.com.br",
-      "name": "Eduardo Campos",
-      "passwordHash": "$2b$10$Ztpcd7j1q2VuADeTtzQj9unjYld3rAAABX1vDDBmT.Lp4CEN.YhXu",
-      "accounts": [],
-      "role": "gerente"
-    },
-    {
-      "email": "cellyanne.rocha@gci.com.br",
-      "name": "Cellyanne Rocha",
-      "passwordHash": "$2b$10$tUHdIu2ef8kG/r/dQmP4jOMSKCUcWkdJV1hwLGP/mTigmUyIVfiDe",
-      "accounts": [],
-      "role": "gerente"
-    },
-    {
-      "email": "matheus.simi@gci.com.br",
-      "name": "Matheus Simi",
-      "passwordHash": "$2b$10$EsayzNRoTEdGW8y92h/MUukrwnKDvT76iYFh2UERM6RO6qko.R6Mi",
-      "accounts": [],
-      "role": "gerente"
-    },
-    {
-      "email": "gerencia@unidadessp.com",
-      "name": "Gerência SP",
-      "passwordHash": "$2b$10$UGfF7nL3729hheuBd7pLS.FzCH6LphG.YxaxRvUyx.qktq5ddGxNe",
-      "accounts": [],
-      "role": "gerente"
-    },
-    {
-      "email": "edina.tumelero@gci.com.br",
-      "name": "Edina Tumelero",
-      "passwordHash": "$2b$10$OeXB/hmANwi0NLC/4aHlsewqHEudTIxZ/W/VAdwAt5zczySYF3TRK",
-      "accounts": [
-        7,
-        9,
-        29,
-        24,
-        37,
-        26
-      ],
-      "role": "lider"
-    },
-    {
-      "email": "ellen.rocha@gci.com.br",
-      "name": "Ellen Rocha",
-      "passwordHash": "$2b$10$wRP1xF7nAVjgqrPnwwt6y.dSnUSjhrifgCPxAX15LqVQjVawT9hNG",
+      "passwordHash": "$2b$10$plNTW0dfNkWlnfz8Lmx67.AIltKVxCJJCGGHD3lhFfv0XRf77UrWG",
       "accounts": [
         12,
         15,
@@ -70,12 +30,28 @@
         25,
         30
       ],
-      "role": "lider"
+      "role": "gerente",
+      "mustChangePassword": true
     },
     {
-      "email": "cleber.gari@gci.com.br",
-      "name": "Cleber Gari",
-      "passwordHash": "$2b$10$UUtQlFPBEYNOUFWXMjQ1MeO2jOIPIrpaH79hlWbbkA9qMrbKKqQDa",
+      "email": "ricardo.p@gci.com.br",
+      "name": "Ricardo P.",
+      "passwordHash": "$2b$10$jbMAHlAXTYyuAFV0nzAu/eXPdZb2.v5BUxE5LCBkov.VZNH7Vmns6",
+      "accounts": [
+        7,
+        9,
+        29,
+        24,
+        37,
+        26
+      ],
+      "role": "gerente",
+      "mustChangePassword": true
+    },
+    {
+      "email": "eduardo.campos@gci.com.br",
+      "name": "Eduardo Campos",
+      "passwordHash": "$2b$10$HPl4ssKwsDEnlDDLHBrbHOVkXROIX6wqbbdlHM4pz1G9.UabCjwMy",
       "accounts": [
         20,
         21,
@@ -85,12 +61,13 @@
         22,
         2
       ],
-      "role": "lider"
+      "role": "gerente",
+      "mustChangePassword": true
     },
     {
-      "email": "ingrid.nascimento@gci.com.br",
-      "name": "Ingrid Nascimento",
-      "passwordHash": "$2b$10$MXfEksMXLMwtJM7aUHKW9uT1h8TazueMMb6.4t5.QWAK2AI2UOKae",
+      "email": "cellyanne.rocha@gci.com.br",
+      "name": "Cellyanne Rocha",
+      "passwordHash": "$2b$10$tpoNrv0JD/kc45C4VA6H7uJxjfYor6rTTPwssVwisCuHx5CNZfKci",
       "accounts": [
         23,
         19,
@@ -99,12 +76,13 @@
         14,
         8
       ],
-      "role": "lider"
+      "role": "gerente",
+      "mustChangePassword": true
     },
     {
-      "email": "anne.santos@gci.com.br",
-      "name": "Anne Santos",
-      "passwordHash": "$2b$10$rmYy9fmUc2HPo9ZP4nRpzuAsoU/Tk2AoMsh0uWTlKuasihsrypgAq",
+      "email": "matheus.simi@gci.com.br",
+      "name": "Matheus Simi",
+      "passwordHash": "$2b$10$QgfYBYVQHKoBAjt8L63k9OtA7niqYyepRYqSrHJV0P4UmnezBLEGu",
       "accounts": [
         31,
         13,
@@ -113,7 +91,85 @@
         32,
         10
       ],
-      "role": "lider"
+      "role": "gerente",
+      "mustChangePassword": true
+    },
+    {
+      "email": "edina.tumelero@gci.com.br",
+      "name": "Edina Tumelero",
+      "passwordHash": "$2b$10$ZgAuiH1unCrEciyv6gzZCevNYr64aZzQx8hdKSWGimJvYybbIyxye",
+      "accounts": [
+        7,
+        9,
+        29,
+        24,
+        37,
+        26
+      ],
+      "role": "lider",
+      "mustChangePassword": true
+    },
+    {
+      "email": "ellen.rocha@gci.com.br",
+      "name": "Ellen Rocha",
+      "passwordHash": "$2b$10$Yj0/xwIQ/KyNrRFxkJi4HelpJKT8IA.FD7V00Vgcs1DCDj9.H9InG",
+      "accounts": [
+        12,
+        15,
+        36,
+        27,
+        18,
+        25,
+        30
+      ],
+      "role": "lider",
+      "mustChangePassword": false
+    },
+    {
+      "email": "cleber.gari@gci.com.br",
+      "name": "Cleber Gari",
+      "passwordHash": "$2b$10$AUsY2hxS8HLCo9D7jCpATeo7Ht5i0hdD5P1/7pYs.uDHPgaxAFpDW",
+      "accounts": [
+        20,
+        21,
+        35,
+        16,
+        28,
+        22,
+        2
+      ],
+      "role": "lider",
+      "mustChangePassword": true
+    },
+    {
+      "email": "ingrid.nascimento@gci.com.br",
+      "name": "Ingrid Nascimento",
+      "passwordHash": "$2b$10$33IDHVcguh5cbfYi6onRA.AI1T2CcdET.dCACkzGiS/5cvYOhOGJa",
+      "accounts": [
+        23,
+        19,
+        17,
+        11,
+        14,
+        8
+      ],
+      "role": "lider",
+      "mustChangePassword": true
+    },
+    {
+      "email": "anne.santos@gci.com.br",
+      "name": "Anne Santos",
+      "passwordHash": "$2b$10$3zs7ky0JgdzDEbhd/GbX3.8qpQJTT3BlLVihu1w2C5P1S2NKDztGO",
+      "accounts": [
+        31,
+        13,
+        34,
+        1,
+        32,
+        10
+      ],
+      "role": "lider",
+      "mustChangePassword": true
     }
   ]
 }

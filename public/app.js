@@ -77,6 +77,7 @@ async function loadUserInfo() {
     const res = await fetch('/api/auth/me');
     if (!res.ok) return window.location.href = '/login';
     const user = await res.json();
+    if (user.mustChangePassword) return window.location.href = '/login';
     const el = document.getElementById('userName');
     if (el) el.textContent = user.name || user.email;
   } catch {

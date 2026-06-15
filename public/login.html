@@ -78,10 +78,18 @@
   </div>
 
   <script>
-    // If already authenticated, redirect to dashboard
+    // If already authenticated, redirect (or show password change)
     fetch('/api/auth/me').then(r => {
-      if (r.ok) window.location.href = '/';
-    });
+      if (!r.ok) return;
+      return r.json();
+    }).then(data => {
+      if (!data) return;
+      if (data.mustChangePassword) {
+        showPasswordChange();
+      } else {
+        window.location.href = '/';
+      }
+    }).catch(() => {});
 
     async function handleLogin(e) {
       e.preventDefault();
@@ -93,7 +101,6 @@
       const btnText = document.getElementById('btnText');
       const btnSpinner = document.getElementById('btnSpinner');
 
-      // UI loading state
       errorMsg.classList.add('hidden');
       submitBtn.disabled = true;
       btnText.textContent = 'Autenticando...';
@@ -109,7 +116,11 @@
         const data = await res.json();
 
         if (res.ok) {
-          window.location.href = '/';
+          if (data.mustChangePassword) {
+            showPasswordChange(password);
+          } else {
+            window.location.href = '/';
+          }
         } else {
           errorMsg.textContent = data.error || 'Credenciais inválidas';
           errorMsg.classList.remove('hidden');
@@ -122,6 +133,77 @@
         btnText.textContent = 'Entrar';
         btnSpinner.classList.add('hidden');
       }
+    }
+
+    function showPasswordChange(currentPwd) {
+      document.querySelector('h1').textContent = 'Altere sua senha';
+      document.querySelector('p.text-xs').textContent = 'Por segurança, crie uma nova senha para continuar';
+
+      const form = document.getElementById('loginForm');
+      const needsCurrentPwd = !currentPwd;
+
+      form.innerHTML = `
+        ${needsCurrentPwd ? `<div>
+          <label for="currentPwd" class="block text-xs font-medium text-gray-600 dark:text-neutral-400 mb-1.5">Senha atual</label>
+          <input id="currentPwd" type="password" required
+            class="w-full px-3 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm text-gray-900 dark:text-neutral-100 placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+            placeholder="Senha temporária">
+        </div>` : ''}
+        <div>
+          <label for="newPwd" class="block text-xs font-medium text-gray-600 dark:text-neutral-400 mb-1.5">Nova senha</label>
+          <input id="newPwd" type="password" required minlength="6" ${!needsCurrentPwd ? 'autofocus' : ''}
+            class="w-full px-3 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm text-gray-900 dark:text-neutral-100 placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+            placeholder="Mínimo 6 caracteres">
+        </div>
+        <div>
+          <label for="confirmPwd" class="block text-xs font-medium text-gray-600 dark:text-neutral-400 mb-1.5">Confirme a nova senha</label>
+          <input id="confirmPwd" type="password" required minlength="6"
+            class="w-full px-3 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm text-gray-900 dark:text-neutral-100 placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+            placeholder="Repita a nova senha">
+        </div>
+        <div id="changeError" class="hidden text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2"></div>
+        <button type="submit"
+          class="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+          Salvar nova senha
+        </button>
+      `;
+
+      form.onsubmit = async (ev) => {
+        ev.preventDefault();
+        const pwd = currentPwd || document.getElementById('currentPwd').value;
+        const newPwd = document.getElementById('newPwd').value;
+        const confirm = document.getElementById('confirmPwd').value;
+        const err = document.getElementById('changeError');
+
+        if (newPwd !== confirm) {
+          err.textContent = 'As senhas não coincidem';
+          err.classList.remove('hidden');
+          return;
+        }
+        if (newPwd.length < 6) {
+          err.textContent = 'A senha deve ter pelo menos 6 caracteres';
+          err.classList.remove('hidden');
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword: pwd, newPassword: newPwd }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            window.location.href = '/';
+          } else {
+            err.textContent = data.error || 'Erro ao alterar senha';
+            err.classList.remove('hidden');
+          }
+        } catch {
+          err.textContent = 'Erro de conexão';
+          err.classList.remove('hidden');
+        }
+      };
     }
   </script>
 </body>

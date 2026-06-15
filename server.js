@@ -33,6 +33,10 @@ const EXCLUDED_ACCOUNTS = [38];
 const BOT_FILTER = "u.email NOT LIKE '%@arvore.ia'";
 const BOT_FILTER_CONV = `c.assignee_id NOT IN (SELECT id FROM users WHERE email LIKE '%@arvore.ia')`;
 
+// Tag orto (ortodontia) — excluir da contabilização
+const ORTO_TAG_ID = 17;
+const ORTO_FILTER = `NOT EXISTS (SELECT 1 FROM taggings tg WHERE tg.taggable_id = c.id AND tg.tag_id = ${ORTO_TAG_ID} AND tg.taggable_type = 'Conversation')`;
+
 // ── Middleware ────────────────────────────────────────────────────
 app.use(express.json());
 app.use(cookieParser());
@@ -45,6 +49,11 @@ function loadManagers() {
   } catch {
     return [];
   }
+}
+
+function saveManagers(managers) {
+  const data = { _comment: "Gestores e líderes. accounts=[] = acesso global. mustChangePassword=true exige troca no 1º login.", managers };
+  fs.writeFileSync(path.join(__dirname, 'managers.json'), JSON.stringify(data, null, 2));
 }
 
 // ── Auth: Chatwoot sign_in API ───────────────────────────────────
@@ -60,7 +69,6 @@ async function chatwootAuth(email, password) {
     const data = body.data;
     if (!data) return null;
 
-    // Extract account IDs the user has access to
     const accounts = (data.available_accounts || [])
       .map(a => a.id)
       .filter(id => !EXCLUDED_ACCOUNTS.includes(id));
@@ -75,6 +83,7 @@ async function chatwootAuth(email, password) {
       accounts,
       role,
       source: 'chatwoot',
+      mustChangePassword: false,
     };
   } catch (err) {
     console.error('Chatwoot auth error:', err.message);
@@ -95,9 +104,10 @@ async function localAuth(email, password) {
     id: `local_${manager.email}`,
     name: manager.name,
     email: manager.email,
-    accounts: manager.accounts, // [] = all accounts
+    accounts: manager.accounts,
     role: manager.role || 'manager',
     source: 'local',
+    mustChangePassword: manager.mustChangePassword || false,
   };
 }
 
@@ -110,6 +120,7 @@ function createToken(user) {
     accounts: user.accounts,
     role: user.role,
     source: user.source,
+    mustChangePassword: user.mustChangePassword || false,
   }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 }
 
@@ -137,20 +148,17 @@ function requireAuth(req, res, next) {
 
 // Helper: get allowed accounts for current user (respects global access)
 function getUserAccountFilter(user) {
-  // accounts=[] means global access (admin/leader)
   if (!user.accounts || user.accounts.length === 0) {
-    return EXCLUDED_ACCOUNTS; // only exclude the global exclusions
+    return EXCLUDED_ACCOUNTS;
   }
-  return user.accounts; // return the specific allowed accounts
+  return user.accounts;
 }
 
 function buildAccountWhere(user, alias = '') {
   const prefix = alias ? `${alias}.` : '';
   if (!user.accounts || user.accounts.length === 0) {
-    // Global access — only exclude the excluded accounts
     return `${prefix}account_id NOT IN (${EXCLUDED_ACCOUNTS.join(',')})`;
   }
-  // Specific access — only include user's accounts (already excludes 38 since it's never in their list)
   return `${prefix}account_id IN (${user.accounts.join(',')})`;
 }
 
@@ -166,7 +174,15 @@ app.post('/api/auth/login', async (req, res) => {
 
   // Try Chatwoot first, then local
   let user = await chatwootAuth(email, password);
-  if (!user) {
+  if (user) {
+    // If user exists in managers.json, override accounts/role for consistent permissions
+    const managers = loadManagers();
+    const manager = managers.find(m => m.email.toLowerCase() === email.toLowerCase());
+    if (manager) {
+      user.accounts = manager.accounts;
+      user.role = manager.role || user.role;
+    }
+  } else {
     user = await localAuth(email, password);
   }
   if (!user) {
@@ -178,7 +194,7 @@ app.post('/api/auth/login', async (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000, // 24h
+    maxAge: 24 * 60 * 60 * 1000,
   });
 
   res.json({
@@ -186,6 +202,7 @@ app.post('/api/auth/login', async (req, res) => {
     email: user.email,
     role: user.role,
     accountCount: user.accounts.length || 'all',
+    mustChangePassword: user.mustChangePassword || false,
   });
 });
 
@@ -204,7 +221,58 @@ app.get('/api/auth/me', (req, res) => {
     email: user.email,
     role: user.role,
     accountCount: user.accounts.length || 'all',
+    mustChangePassword: user.mustChangePassword || false,
   });
+});
+
+// ── Password change ─────────────────────────────────────────────
+app.post('/api/auth/change-password', requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Nova senha deve ter pelo menos 6 caracteres' });
+  }
+  if (req.user.source !== 'local') {
+    return res.status(400).json({ error: 'Altere sua senha diretamente no Chatwoot' });
+  }
+
+  const managers = loadManagers();
+  const idx = managers.findIndex(m => m.email.toLowerCase() === req.user.email.toLowerCase());
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Usuário não encontrado' });
+  }
+
+  const valid = await bcrypt.compare(currentPassword, managers[idx].passwordHash);
+  if (!valid) {
+    return res.status(401).json({ error: 'Senha atual incorreta' });
+  }
+
+  managers[idx].passwordHash = await bcrypt.hash(newPassword, 10);
+  managers[idx].mustChangePassword = false;
+  saveManagers(managers);
+
+  const user = {
+    id: req.user.id,
+    name: req.user.name,
+    email: req.user.email,
+    accounts: req.user.accounts,
+    role: req.user.role,
+    source: 'local',
+    mustChangePassword: false,
+  };
+
+  const token = createToken(user);
+  res.cookie('farol_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+
+  res.json({ ok: true });
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -240,7 +308,7 @@ app.get('/', (req, res) => {
 // Static assets (CSS, JS, fonts) — always accessible
 app.use('/app.js', express.static(path.join(__dirname, 'public', 'app.js')));
 app.use(express.static(path.join(__dirname, 'public'), {
-  index: false, // don't auto-serve index.html
+  index: false,
 }));
 
 // ══════════════════════════════════════════════════════════════════
@@ -251,16 +319,17 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.get('/api/units', requireAuth, async (req, res) => {
   try {
     const hoursThreshold = parseInt(req.query.hours) || 48;
-    const accountWhere = buildAccountWhere(req.user);
+    const accountWhere = buildAccountWhere(req.user, 'c');
 
     const query = `
       WITH queue AS (
-        SELECT account_id, COUNT(*) as cnt
-        FROM conversations
-        WHERE status = 0
-          AND assignee_id IS NULL
+        SELECT c.account_id, COUNT(*) as cnt
+        FROM conversations c
+        WHERE c.status = 0
+          AND c.assignee_id IS NULL
           AND ${accountWhere}
-        GROUP BY account_id
+          AND ${ORTO_FILTER}
+        GROUP BY c.account_id
       ),
       stalled AS (
         SELECT c.account_id, COUNT(*) as cnt
@@ -269,7 +338,8 @@ app.get('/api/units', requireAuth, async (req, res) => {
           AND c.assignee_id IS NOT NULL
           AND ${BOT_FILTER_CONV}
           AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
-          AND ${buildAccountWhere(req.user, 'c')}
+          AND ${accountWhere}
+          AND ${ORTO_FILTER}
         GROUP BY c.account_id
       ),
       stalled_ops AS (
@@ -279,7 +349,8 @@ app.get('/api/units', requireAuth, async (req, res) => {
           AND c.assignee_id IS NOT NULL
           AND ${BOT_FILTER_CONV}
           AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
-          AND ${buildAccountWhere(req.user, 'c')}
+          AND ${accountWhere}
+          AND ${ORTO_FILTER}
         GROUP BY c.account_id
       ),
       oldest AS (
@@ -289,7 +360,8 @@ app.get('/api/units', requireAuth, async (req, res) => {
           AND c.assignee_id IS NOT NULL
           AND ${BOT_FILTER_CONV}
           AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
-          AND ${buildAccountWhere(req.user, 'c')}
+          AND ${accountWhere}
+          AND ${ORTO_FILTER}
         GROUP BY c.account_id
       )
       SELECT
@@ -304,7 +376,7 @@ app.get('/api/units', requireAuth, async (req, res) => {
       LEFT JOIN stalled s ON s.account_id = a.id
       LEFT JOIN stalled_ops so ON so.account_id = a.id
       LEFT JOIN oldest o ON o.account_id = a.id
-      WHERE ${accountWhere.replace('account_id', 'a.id')}
+      WHERE ${buildAccountWhere(req.user).replace('account_id', 'a.id')}
       ORDER BY (COALESCE(s.cnt, 0) + COALESCE(q.cnt, 0)) DESC
     `;
 
@@ -338,7 +410,6 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
     const hoursThreshold = parseInt(req.query.hours) || 48;
     const limit = Math.min(parseInt(req.query.limit) || 200, 500);
 
-    // Check permission: user must have access to this account
     if (req.user.accounts && req.user.accounts.length > 0 && !req.user.accounts.includes(accountId)) {
       return res.status(403).json({ error: 'Sem permissão para esta unidade' });
     }
@@ -364,6 +435,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
       WHERE c.account_id = $1
         AND c.status = 0
         AND c.assignee_id IS NULL
+        AND ${ORTO_FILTER}
       ORDER BY COALESCE(c.last_activity_at, c.created_at) ASC
       LIMIT $2
     `;
@@ -387,6 +459,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
         AND c.status = 0
         AND c.assignee_id IS NOT NULL
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
+        AND ${ORTO_FILTER}
       ORDER BY COALESCE(c.last_activity_at, c.created_at) ASC
       LIMIT $2
     `;
@@ -404,13 +477,15 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
         AND c.status = 0
         AND c.assignee_id IS NOT NULL
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
+        AND ${ORTO_FILTER}
       GROUP BY u.id, u.name
       ORDER BY COUNT(*) DESC
     `;
 
     const queueCountQuery = `
-      SELECT COUNT(*) as cnt FROM conversations
-      WHERE account_id = $1 AND status = 0 AND assignee_id IS NULL
+      SELECT COUNT(*) as cnt FROM conversations c
+      WHERE c.account_id = $1 AND c.status = 0 AND c.assignee_id IS NULL
+      AND ${ORTO_FILTER}
     `;
     const stalledCountQuery = `
       SELECT COUNT(*) as cnt FROM conversations c
@@ -418,6 +493,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
         AND c.assignee_id IS NOT NULL
         AND ${BOT_FILTER_CONV}
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
+        AND ${ORTO_FILTER}
     `;
 
     const [queueResult, stalledResult, operatorResult, queueCountResult, stalledCountResult] = await Promise.all([
@@ -481,6 +557,7 @@ app.get('/api/operators', requireAuth, async (req, res) => {
         AND c.assignee_id IS NOT NULL
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
         AND ${accountWhere}
+        AND ${ORTO_FILTER}
       GROUP BY u.id, u.name, u.email, c.account_id, a.name
       ORDER BY COUNT(*) DESC
       LIMIT $1
@@ -515,7 +592,6 @@ app.get('/api/operators/:userId/conversations', requireAuth, async (req, res) =>
 
     if (!accountId) return res.status(400).json({ error: 'account_id required' });
 
-    // Check permission
     if (req.user.accounts && req.user.accounts.length > 0 && !req.user.accounts.includes(accountId)) {
       return res.status(403).json({ error: 'Sem permissão para esta unidade' });
     }
@@ -546,6 +622,7 @@ app.get('/api/operators/:userId/conversations', requireAuth, async (req, res) =>
         AND c.assignee_id = $2
         AND c.status = 0
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
+        AND ${ORTO_FILTER}
       ORDER BY COALESCE(c.last_activity_at, c.created_at) ASC
       LIMIT $3
     `;
@@ -554,6 +631,7 @@ app.get('/api/operators/:userId/conversations', requireAuth, async (req, res) =>
       SELECT COUNT(*) as cnt FROM conversations c
       WHERE c.account_id = $1 AND c.assignee_id = $2 AND c.status = 0
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
+        AND ${ORTO_FILTER}
     `;
 
     const [convResult, countResult] = await Promise.all([
