@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initBanner();
   loadUserInfo();
+  loadTags();
   loadDashboard();
 
   document.getElementById('searchUnits').addEventListener('input', (e) => {
@@ -21,6 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('hoursFilter').addEventListener('change', () => {
+    loadDashboard();
+  });
+
+  document.getElementById('tagFilter').addEventListener('change', () => {
     loadDashboard();
   });
 
@@ -107,15 +112,36 @@ function getHoursThreshold() {
   return document.getElementById('hoursFilter').value || '48';
 }
 
+function getTagFilter() {
+  return document.getElementById('tagFilter').value || '';
+}
+
+async function loadTags() {
+  try {
+    const res = await fetch('/api/tags');
+    if (!res.ok) return;
+    const data = await res.json();
+    const select = document.getElementById('tagFilter');
+    data.tags.forEach(tag => {
+      const opt = document.createElement('option');
+      opt.value = tag.id;
+      opt.textContent = `${tag.name} (${tag.usage_count.toLocaleString('pt-BR')})`;
+      select.appendChild(opt);
+    });
+  } catch {}
+}
+
 // ── Load Dashboard ──────────────────────────────────────────
 async function loadDashboard() {
   showState('loading');
   const hours = getHoursThreshold();
+  const tag = getTagFilter();
+  const tagParam = tag ? `&tag=${tag}` : '';
 
   try {
     const [unitsRes, opsRes] = await Promise.all([
-      fetch(`/api/units?hours=${hours}`),
-      fetch(`/api/operators?hours=${hours}`),
+      fetch(`/api/units?hours=${hours}${tagParam}`),
+      fetch(`/api/operators?hours=${hours}${tagParam}`),
     ]);
 
     if (handleAuthError(unitsRes)) return;
@@ -296,9 +322,11 @@ async function openDrilldown(accountId) {
   document.getElementById('modalTabsBar').classList.remove('hidden');
 
   const hours = getHoursThreshold();
+  const tag = getTagFilter();
+  const tagParam = tag ? `&tag=${tag}` : '';
 
   try {
-    const res = await fetch(`/api/units/${accountId}/detail?hours=${hours}`);
+    const res = await fetch(`/api/units/${accountId}/detail?hours=${hours}${tagParam}`);
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     currentDetailData = await res.json();
 
@@ -346,9 +374,11 @@ async function openOperatorDrilldown(userId, accountId, operatorName) {
   document.getElementById('modalOps').classList.add('hidden');
 
   const hours = getHoursThreshold();
+  const tag = getTagFilter();
+  const tagParam = tag ? `&tag=${tag}` : '';
 
   try {
-    const res = await fetch(`/api/operators/${userId}/conversations?account_id=${accountId}&hours=${hours}`);
+    const res = await fetch(`/api/operators/${userId}/conversations?account_id=${accountId}&hours=${hours}${tagParam}`);
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const data = await res.json();
 

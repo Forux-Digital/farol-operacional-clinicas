@@ -37,6 +37,14 @@ const BOT_FILTER_CONV = `c.assignee_id NOT IN (SELECT id FROM users WHERE email 
 const ORTO_TAG_ID = 17;
 const ORTO_FILTER = `NOT EXISTS (SELECT 1 FROM taggings tg WHERE tg.taggable_id = c.id AND tg.tag_id = ${ORTO_TAG_ID} AND tg.taggable_type = 'Conversation')`;
 
+// Tag filter helper: when ?tag=ID is passed, only include conversations WITH that tag
+function buildTagFilter(tagId) {
+  if (!tagId) return '';
+  const id = parseInt(tagId);
+  if (isNaN(id)) return '';
+  return `AND EXISTS (SELECT 1 FROM taggings tgf WHERE tgf.taggable_id = c.id AND tgf.tag_id = ${id} AND tgf.taggable_type = 'Conversation')`;
+}
+
 // ── Middleware ────────────────────────────────────────────────────
 app.use(express.json());
 app.use(cookieParser());
@@ -315,10 +323,28 @@ app.use(express.static(path.join(__dirname, 'public'), {
 // DATA API ENDPOINTS (all require auth)
 // ══════════════════════════════════════════════════════════════════
 
+// ── GET /api/tags ───────────────────────────────────────────────
+app.get('/api/tags', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT t.id, t.name, COUNT(tg.id)::int as usage_count
+      FROM tags t
+      JOIN taggings tg ON tg.tag_id = t.id AND tg.taggable_type = 'Conversation'
+      GROUP BY t.id, t.name
+      ORDER BY usage_count DESC
+    `);
+    res.json({ tags: result.rows });
+  } catch (err) {
+    console.error('Error in /api/tags:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /api/units ──────────────────────────────────────────────
 app.get('/api/units', requireAuth, async (req, res) => {
   try {
     const hoursThreshold = parseInt(req.query.hours) || 48;
+    const tagFilter = buildTagFilter(req.query.tag);
     const accountWhere = buildAccountWhere(req.user, 'c');
 
     const query = `
@@ -329,6 +355,7 @@ app.get('/api/units', requireAuth, async (req, res) => {
           AND c.assignee_id IS NULL
           AND ${accountWhere}
           AND ${ORTO_FILTER}
+          ${tagFilter}
         GROUP BY c.account_id
       ),
       stalled AS (
@@ -340,6 +367,7 @@ app.get('/api/units', requireAuth, async (req, res) => {
           AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
           AND ${accountWhere}
           AND ${ORTO_FILTER}
+          ${tagFilter}
         GROUP BY c.account_id
       ),
       stalled_ops AS (
@@ -351,6 +379,7 @@ app.get('/api/units', requireAuth, async (req, res) => {
           AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
           AND ${accountWhere}
           AND ${ORTO_FILTER}
+          ${tagFilter}
         GROUP BY c.account_id
       ),
       oldest AS (
@@ -362,6 +391,7 @@ app.get('/api/units', requireAuth, async (req, res) => {
           AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
           AND ${accountWhere}
           AND ${ORTO_FILTER}
+          ${tagFilter}
         GROUP BY c.account_id
       )
       SELECT
@@ -408,6 +438,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
   try {
     const accountId = parseInt(req.params.id);
     const hoursThreshold = parseInt(req.query.hours) || 48;
+    const tagFilter = buildTagFilter(req.query.tag);
     const limit = Math.min(parseInt(req.query.limit) || 200, 500);
 
     if (req.user.accounts && req.user.accounts.length > 0 && !req.user.accounts.includes(accountId)) {
@@ -436,6 +467,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
         AND c.status = 0
         AND c.assignee_id IS NULL
         AND ${ORTO_FILTER}
+        ${tagFilter}
       ORDER BY COALESCE(c.last_activity_at, c.created_at) ASC
       LIMIT $2
     `;
@@ -460,6 +492,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
         AND c.assignee_id IS NOT NULL
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
         AND ${ORTO_FILTER}
+        ${tagFilter}
       ORDER BY COALESCE(c.last_activity_at, c.created_at) ASC
       LIMIT $2
     `;
@@ -478,6 +511,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
         AND c.assignee_id IS NOT NULL
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
         AND ${ORTO_FILTER}
+        ${tagFilter}
       GROUP BY u.id, u.name
       ORDER BY COUNT(*) DESC
     `;
@@ -486,6 +520,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
       SELECT COUNT(*) as cnt FROM conversations c
       WHERE c.account_id = $1 AND c.status = 0 AND c.assignee_id IS NULL
       AND ${ORTO_FILTER}
+      ${tagFilter}
     `;
     const stalledCountQuery = `
       SELECT COUNT(*) as cnt FROM conversations c
@@ -494,6 +529,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
         AND ${BOT_FILTER_CONV}
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
         AND ${ORTO_FILTER}
+        ${tagFilter}
     `;
 
     const [queueResult, stalledResult, operatorResult, queueCountResult, stalledCountResult] = await Promise.all([
@@ -537,6 +573,7 @@ app.get('/api/units/:id/detail', requireAuth, async (req, res) => {
 app.get('/api/operators', requireAuth, async (req, res) => {
   try {
     const hoursThreshold = parseInt(req.query.hours) || 48;
+    const tagFilter = buildTagFilter(req.query.tag);
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const accountWhere = buildAccountWhere(req.user, 'c');
 
@@ -558,6 +595,7 @@ app.get('/api/operators', requireAuth, async (req, res) => {
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
         AND ${accountWhere}
         AND ${ORTO_FILTER}
+        ${tagFilter}
       GROUP BY u.id, u.name, u.email, c.account_id, a.name
       ORDER BY COUNT(*) DESC
       LIMIT $1
@@ -588,6 +626,7 @@ app.get('/api/operators/:userId/conversations', requireAuth, async (req, res) =>
     const userId = parseInt(req.params.userId);
     const accountId = parseInt(req.query.account_id);
     const hoursThreshold = parseInt(req.query.hours) || 48;
+    const tagFilter = buildTagFilter(req.query.tag);
     const limit = Math.min(parseInt(req.query.limit) || 200, 500);
 
     if (!accountId) return res.status(400).json({ error: 'account_id required' });
@@ -623,6 +662,7 @@ app.get('/api/operators/:userId/conversations', requireAuth, async (req, res) =>
         AND c.status = 0
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
         AND ${ORTO_FILTER}
+        ${tagFilter}
       ORDER BY COALESCE(c.last_activity_at, c.created_at) ASC
       LIMIT $3
     `;
@@ -632,6 +672,7 @@ app.get('/api/operators/:userId/conversations', requireAuth, async (req, res) =>
       WHERE c.account_id = $1 AND c.assignee_id = $2 AND c.status = 0
         AND COALESCE(c.last_activity_at, c.created_at) < NOW() - INTERVAL '${hoursThreshold} hours'
         AND ${ORTO_FILTER}
+        ${tagFilter}
     `;
 
     const [convResult, countResult] = await Promise.all([
