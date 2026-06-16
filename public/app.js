@@ -125,7 +125,7 @@ async function loadTags() {
     data.tags.forEach(tag => {
       const opt = document.createElement('option');
       opt.value = tag.id;
-      opt.textContent = `${tag.name} (${tag.usage_count.toLocaleString('pt-BR')})`;
+      opt.textContent = tag.name;
       select.appendChild(opt);
     });
   } catch {}
