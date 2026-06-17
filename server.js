@@ -99,6 +99,42 @@ async function chatwootAuth(email, password) {
   }
 }
 
+// ── Auth: SSO do hub GCI (valida a credencial devise, sem senha) ──
+async function chatwootValidateSSO(cred) {
+  try {
+    const res = await fetch(`${CHATWOOT_BASE}/auth/validate_token`, {
+      method: 'GET',
+      headers: {
+        'access-token': cred.access_token || '',
+        'token-type': cred.token_type || 'Bearer',
+        client: cred.client || '',
+        uid: cred.uid || '',
+      },
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const data = body.data;
+    if (!data || !data.email) return null;
+    const accounts = (data.available_accounts || [])
+      .map(a => a.id)
+      .filter(id => !EXCLUDED_ACCOUNTS.includes(id));
+    const role = (data.available_accounts || []).some(a => a.role === 'administrator')
+      ? 'admin' : 'agent';
+    return {
+      id: data.id,
+      name: data.name || String(data.email).split('@')[0],
+      email: data.email,
+      accounts,
+      role,
+      source: 'chatwoot',
+      mustChangePassword: false,
+    };
+  } catch (err) {
+    console.error('Chatwoot SSO validate error:', err.message);
+    return null;
+  }
+}
+
 // ── Auth: Local managers ─────────────────────────────────────────
 async function localAuth(email, password) {
   const managers = loadManagers();
@@ -212,6 +248,31 @@ app.post('/api/auth/login', async (req, res) => {
     accountCount: user.accounts.length || 'all',
     mustChangePassword: user.mustChangePassword || false,
   });
+});
+
+// SSO do hub GCI: cria a sessão a partir da credencial do Chatwoot (sem senha).
+// Cookie SameSite=None p/ funcionar embedado (iframe cross-site no hub).
+app.post('/api/auth/sso', async (req, res) => {
+  const cred = (req.body && req.body.cred) || req.body || {};
+  if (!cred.access_token || !cred.uid) {
+    return res.status(400).json({ error: 'Credencial ausente' });
+  }
+  let user = await chatwootValidateSSO(cred);
+  if (user) {
+    const managers = loadManagers();
+    const manager = managers.find(m => m.email.toLowerCase() === String(user.email).toLowerCase());
+    if (manager) { user.accounts = manager.accounts; user.role = manager.role || user.role; }
+  }
+  if (!user) return res.status(401).json({ error: 'Credenciais inválidas' });
+
+  const token = createToken(user);
+  res.cookie('farol_token', token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+  res.json({ name: user.name, email: user.email, role: user.role });
 });
 
 app.post('/api/auth/logout', (req, res) => {
