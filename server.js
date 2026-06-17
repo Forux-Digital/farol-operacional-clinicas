@@ -266,12 +266,13 @@ app.post('/api/auth/sso', async (req, res) => {
   if (!user) return res.status(401).json({ error: 'Credenciais inválidas' });
 
   const token = createToken(user);
-  res.cookie('farol_token', token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    maxAge: 24 * 60 * 60 * 1000,
-  });
+  // SameSite=None + Partitioned (CHIPS): com o bloqueio de cookies de terceiros do Chrome,
+  // um Set-Cookie SameSite=None comum é descartado em iframe cross-site. Partitioned grava o
+  // cookie no jar particionado por site de topo (gci.arvore.party) e ele é enviado nas
+  // requisições do iframe — funciona inclusive em aba anônima. Set-Cookie manual porque o
+  // res.cookie() do Express só suporta `partitioned` em versões recentes do pacote cookie.
+  res.setHeader('Set-Cookie',
+    `farol_token=${token}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${24 * 60 * 60}`);
   res.json({ name: user.name, email: user.email, role: user.role });
 });
 
