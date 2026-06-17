@@ -113,12 +113,15 @@ async function chatwootValidateSSO(cred) {
     });
     if (!res.ok) return null;
     const body = await res.json();
-    const data = body.data;
+    // O /auth/validate_token devolve o usuário em `payload.data` (o /auth/sign_in usa `data`)
+    // e a lista de contas em `accounts` (o sign_in usa `available_accounts`). Trata os dois.
+    const data = (body.payload && body.payload.data) || body.data;
     if (!data || !data.email) return null;
-    const accounts = (data.available_accounts || [])
+    const accs = data.accounts || data.available_accounts || [];
+    const accounts = accs
       .map(a => a.id)
       .filter(id => !EXCLUDED_ACCOUNTS.includes(id));
-    const role = (data.available_accounts || []).some(a => a.role === 'administrator')
+    const role = accs.some(a => a.role === 'administrator')
       ? 'admin' : 'agent';
     return {
       id: data.id,
