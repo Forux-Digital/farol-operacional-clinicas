@@ -280,7 +280,10 @@ app.post('/api/auth/sso', async (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('farol_token');
+  // Limpa o cookie normal (Lax) E o particionado (SameSite=None; Partitioned) do embed do hub —
+  // senão a sessão embedada do usuário anterior vaza pro próximo no mesmo navegador.
+  res.append('Set-Cookie', 'farol_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+  res.append('Set-Cookie', 'farol_token=; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=0');
   res.json({ ok: true });
 });
 

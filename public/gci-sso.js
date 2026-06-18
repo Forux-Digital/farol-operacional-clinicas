@@ -7,6 +7,12 @@
 (function () {
   try {
     if (window.top === window.self) return;            // só dentro do hub (iframe)
+    // Varredura de logout do hub: encerra a sessão do Farol (limpa farol_token, inclusive o
+    // particionado do embed) e para por aqui.
+    if (location.search.indexOf('gci_logout') >= 0) {
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(function () {});
+      return;
+    }
     var HUB_ORIGINS = ['https://gci.arvore.party', 'https://app.arvore.party'];
     var done = false;
 
