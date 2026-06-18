@@ -8,9 +8,13 @@
   try {
     if (window.top === window.self) return;            // só dentro do hub (iframe)
     // Varredura de logout do hub: encerra a sessão do Farol (limpa farol_token, inclusive o
-    // particionado do embed) e para por aqui.
+    // particionado do embed). sendBeacon sobrevive ao redirect da /login (não é cancelado pela
+    // navegação), garantindo que o /api/auth/logout complete.
     if (location.search.indexOf('gci_logout') >= 0) {
-      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(function () {});
+      try {
+        if (navigator.sendBeacon) navigator.sendBeacon('/api/auth/logout');
+        else fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      } catch (_) {}
       return;
     }
     var HUB_ORIGINS = ['https://gci.arvore.party', 'https://app.arvore.party'];
